@@ -1,8 +1,10 @@
 mod config;
-mod restful;
+mod db;
+mod api;
 mod socketio;
 
-use restful::auth::{authorize, register};
+use db::DbState;
+use api::auth::{authorize, register};
 
 use axum::routing::{get, post};
 
@@ -14,22 +16,10 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 use tracing::info;
 
 use axum::http::{HeaderValue, request::Parts as RequestParts};
-use std::{
-    error::Error,
-    sync::{Arc, Mutex},
-};
+use std::error::Error;
 use tracing_subscriber::fmt::time::ChronoLocal;
 
 use socketio::{OnlineDevs, OnlineUsers, on_connect};
-
-// Our shared state
-#[derive(Clone)]
-struct AppState {
-    config: Arc<Mutex<Config>>,
-    mongo_client: Client,
-    // Channel used to send messages to all connected clients.
-    // tx: broadcast::Sender<String>,
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -45,11 +35,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // Init mongodb connection
     let uri = config.mongo_uri().ok_or("mongodb uri not set")?;
     let mongo_client = Client::with_uri_str(uri).await?;
-    // let secret = Arc::new(Mutex::new(config.get_secret().ok_or("secret not set")?));
-    let app_state = AppState {
-        config: Arc::new(Mutex::new(config)),
-        mongo_client,
-    };
+    let db_state = DbState::new(config, mongo_client);
 
     let (layer, io) = SocketIo::builder()
         .with_state(OnlineDevs::default())
@@ -74,7 +60,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 )))
                 .layer(layer),
         )
-        .with_state(app_state);
+        .with_state(db_state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3020").await.unwrap();
     info!("Starting server on 0.0.0.0:3020");
