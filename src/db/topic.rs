@@ -11,15 +11,16 @@ use super::DbState;
 pub struct TopicDoc {
     #[serde(rename = "_id")]
     oid: ObjectId,
-    title: String,
-    author: ObjectId,
-    content: String,
+    pub title: String,
+    pub author: ObjectId,
+    pub channel: ObjectId,
+    pub content: String,
     // #[serde(
     //     serialize_with = "serialize_i64_as_bson_datetime",
     //     rename = "createdAt"
     // )]
     #[serde(rename = "createdAt")]
-    created_at: DateTime,
+    pub created_at: DateTime,
 }
 
 impl DbState {
@@ -41,10 +42,20 @@ impl DbState {
         Ok(topicoid)
     }
 
-    pub async fn delete_topic(&self, oid: ObjectId) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn delete_topic(&self, tid: ObjectId) -> Result<(), Box<dyn Error + Send + Sync>> {
         let db = self.db()?;
         let coll: Collection<TopicDoc> = db.collection("topics");
-        coll.delete_one(doc! {"_id": oid}).await?;
+        coll.delete_one(doc! {"_id": tid}).await?;
         Ok(())
+    }
+
+    pub async fn get_topic(&self, tid: ObjectId) -> Result<TopicDoc, Box<dyn Error + Send + Sync>> {
+        let db = self.db()?;
+        let coll: Collection<TopicDoc> = db.collection("topics");
+        let t_doc = coll.find_one(doc! {"_id": tid}).await?;
+        match t_doc {
+            Some(d) => Ok(d),
+            None => Err("No topic found".into()),
+        }
     }
 }

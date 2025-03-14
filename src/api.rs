@@ -1,5 +1,5 @@
 pub mod auth;
-pub mod topic;
+pub mod discussion;
 
 use axum::{
     Json,
@@ -12,6 +12,7 @@ use serde_json::json;
 pub enum HandleError {
     WrongCredentials,
     MissingCredentials,
+    NotFound(String),
     BadRequest(String),
     ServerError(String),
 }
@@ -25,6 +26,7 @@ impl IntoResponse for HandleError {
             HandleError::MissingCredentials => {
                 (StatusCode::BAD_REQUEST, "Missing credentials".to_string())
             }
+            HandleError::NotFound(s) => (StatusCode::NOT_FOUND, s),
             HandleError::BadRequest(s) => (StatusCode::BAD_REQUEST, s),
             HandleError::ServerError(s) => (StatusCode::INTERNAL_SERVER_ERROR, s),
         };

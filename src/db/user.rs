@@ -1,3 +1,5 @@
+use crate::db::encode_oid;
+
 use super::DbState;
 use bcrypt::{DEFAULT_COST, hash, verify};
 use mongodb::{
@@ -26,11 +28,16 @@ impl DbState {
 
         let hashed_pwd = hash(password, DEFAULT_COST)?;
         let opts = IndexOptions::builder().unique(true).build();
-        let index = IndexModel::builder()
-            .keys(doc! {"email": 1, "name": 1})
+        let index1 = IndexModel::builder()
+            .keys(doc! {"email": 1})
+            .options(opts.clone())
+            .build();
+        let index2 = IndexModel::builder()
+            .keys(doc! {"name": 1})
             .options(opts)
             .build();
-        let _idx = coll.create_index(index).await?;
+        let _idx = coll.create_index(index1).await?;
+        let _idx = coll.create_index(index2).await?;
 
         let res = coll
             .insert_one(doc! {"name": &name, "email": &email, "password": hashed_pwd})
@@ -40,7 +47,11 @@ impl DbState {
             Some(oid) => oid,
             None => return Err("Error parsing user objectid".into()),
         };
-        info!("user added: {:?}", res.inserted_id);
+        info!(
+            "user added: {:?}, encoded: {}",
+            useroid,
+            encode_oid(useroid)
+        );
         Ok(useroid)
     }
 
@@ -72,12 +83,24 @@ impl DbState {
             Err(_) => Err("Verification failed".into()),
         }
     }
+
+    pub async fn get_user(&self, uid: ObjectId) -> Result<UserDoc, Box<dyn Error + Send + Sync>> {
+        let db = self.db()?;
+        let coll: Collection<UserDoc> = db.collection("users");
+        match coll.find_one(doc! {"_id": uid}).await {
+            Ok(d) => match d {
+                Some(d) => Ok(d),
+                None => Err("No user found".into()),
+            },
+            Err(_) => Err("User doc query error".into()),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct UserDoc {
-    name: String,
-    email: String,
+pub struct UserDoc {
+    pub name: String,
+    pub email: String,
     password: String,
     #[serde(rename = "_id")]
     oid: ObjectId,

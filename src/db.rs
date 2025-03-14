@@ -11,7 +11,6 @@ use base64::{Engine, prelude::BASE64_URL_SAFE};
 use mongodb::{Client, Database, bson::oid::ObjectId};
 use std::error::Error;
 
-pub use topic::TopicDoc;
 #[derive(Debug, Clone, Default)]
 pub struct OidDec(pub ObjectId);
 
@@ -25,9 +24,9 @@ where
         let Path(path) = parts
             .extract::<Path<String>>()
             .await
-            .map_err(|_| HandleError::BadRequest("Invalid path".to_string()))?;
+            .map_err(|_| HandleError::NotFound("Invalid path".to_string()))?;
 
-        let oid = decode_oid(&path).ok_or(HandleError::BadRequest("Invalid path".to_string()))?;
+        let oid = decode_oid(&path).ok_or(HandleError::NotFound("Invalid path".to_string()))?;
         Ok(OidDec(oid))
     }
 }

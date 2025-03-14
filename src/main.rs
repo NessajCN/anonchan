@@ -1,10 +1,13 @@
+mod api;
 mod config;
 mod db;
-mod api;
 mod socketio;
 
+use api::{
+    auth::{authorize, register},
+    discussion::topic,
+};
 use db::DbState;
-use api::auth::{authorize, register};
 
 use axum::routing::{get, post};
 
@@ -49,6 +52,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .route("/", get(|| async { "Hello, World!" }))
         .route("/auth", post(authorize))
         .route("/reg", post(register))
+        .route("/t/{tid}", get(topic))
         .layer(
             ServiceBuilder::new()
                 // Enable CORS policy
